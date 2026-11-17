@@ -34,6 +34,17 @@ describe('Autenticacao', () => {
     expect(res.json().error.code).toBe('INVALID_CREDENTIALS');
   });
 
+  it('rejeita usuario inexistente com a mesma mensagem generica', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: 'inexistente@test.com', password: TEST_PASSWORD },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('INVALID_CREDENTIALS');
+    expect(res.json().error.message).toBe('E-mail ou senha invalidos.');
+  });
+
   it('rejeita token invalido com 401', async () => {
     const res = await app.inject({
       method: 'GET',

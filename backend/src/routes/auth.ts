@@ -9,6 +9,13 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Senha obrigatoria'),
 });
 
+/**
+ * Hash bcrypt fixo (custo 10), calculado uma unica vez no carregamento do modulo.
+ * Usado apenas para manter o custo da comparacao quando o e-mail nao existe,
+ * evitando enumeracao de contas por diferenca de tempo de resposta.
+ */
+const DUMMY_PASSWORD_HASH = '$2a$10$s.dLJNssshIuKkDWjSixZO8fZPnoGCk2GzyS4PF/4lxvZ9IFX7lNe';
+
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/login', async (req) => {
     const parsed = loginSchema.safeParse(req.body);
@@ -23,7 +30,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     });
 
     // Mensagem generica: nao revela se o e-mail existe.
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    // O bcrypt (via verifyPassword) sempre executa: para e-mail inexistente
+    // usamos o hash dummy fixo, mantendo o mesmo custo de CPU e o mesmo retorno.
+    const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
+    const passwordValid = await verifyPassword(password, passwordHash);
+    if (!user || !passwordValid) {
       throw new HttpError(401, 'E-mail ou senha invalidos.', 'INVALID_CREDENTIALS');
     }
 
