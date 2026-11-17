@@ -7,6 +7,7 @@ import type {
   ReportSummary,
   Slot,
 } from './types';
+import { setClinicTimezone } from './format';
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api';
 const TOKEN_KEY = 'clinic.token';
@@ -49,6 +50,25 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(res.status, err.message ?? 'Erro inesperado.', err.code);
   }
   return data as T;
+}
+
+/**
+ * Carrega o fuso da clinica no GET /health do backend (fonte de verdade).
+ * Nao lanca: se a API estiver indisponivel, format.ts mantem o fallback.
+ */
+export async function loadClinicTimezone(): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  try {
+    const health = await request<{ status: string; timezone: string }>('/health', {
+      signal: controller.signal,
+    });
+    if (health.timezone) setClinicTimezone(health.timezone);
+  } catch {
+    // API indisponivel: mantem o fallback de inicializacao em format.ts.
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export const api = {

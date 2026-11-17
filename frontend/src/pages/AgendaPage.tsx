@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { Appointment, ExamType, PatientOption, Slot } from '../types';
-import { addDays, formatLongDate, todayKey } from '../format';
+import { addDays, formatLongDate, formatLongDayKey, todayKey } from '../format';
 import { Alert, Card, CardHead, EmptyState, LoadingPanel, StatusBadge } from '../components/ui';
 
 export function AgendaPage() {
@@ -199,7 +199,7 @@ export function AgendaPage() {
 
             <div>
               <div className="field__label" style={{ marginBottom: 8 }}>
-                Horários — {formatLongDate(`${day}T12:00:00-03:00`)}
+                Horários — {formatLongDayKey(day)}
               </div>
               {loading ? (
                 <LoadingPanel label="Carregando horários..." />

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { ApiError } from '../api';
+import { getClinicTimezone, isClinicTimezoneLoaded } from '../format';
 import { Alert } from '../components/ui';
 
 const DEMO_ACCOUNTS = [
@@ -63,7 +64,7 @@ export function LoginPage() {
         </div>
 
         <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
-          Fuso horário da clínica: America/Sao_Paulo (UTC-3)
+          Fuso horário da clínica: {isClinicTimezoneLoaded() ? getClinicTimezone() : 'não disponível'}
         </div>
       </aside>
 
