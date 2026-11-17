@@ -43,7 +43,7 @@ Competências demonstradas na implementação:
 
 Vibe Coding foi utilizado como acelerador de desenvolvimento, não como substituto da engenharia. As implementações foram revisadas e submetidas à validação das regras de negócio, segurança, concorrência, integração e testes automatizados.
 
-O requisito de *vive coding* do desafio pressupõe uma sessão ao vivo; ele não é atendido por um artefato de código. O repositório está organizado para sustentar essa sessão: o backend é pequeno e legível, as regras de negócio ficam isoladas em `src/services/` (cada uma com o comentário da regra que implementa), a migration inicial já traz o índice único parcial comentado, e a suíte pode ser executada incrementalmente (`npm test -- -t "CENARIO 1"`) para demonstrar cada cenário sob demanda.
+O requisito de *Vibe Coding* do desafio pressupõe uma sessão ao vivo; ele não é atendido por um artefato de código. O repositório está organizado para sustentar essa sessão: o backend é pequeno e legível, as regras de negócio ficam isoladas em `src/services/`, cada uma com o comentário da regra que implementa, a migration inicial já traz o índice único parcial comentado, e a suíte pode ser executada incrementalmente (`npm test -- -t "CENARIO 1"`) para demonstrar cada cenário sob demanda.
 
 ### Validação real durante o desenvolvimento
 
@@ -53,7 +53,7 @@ Durante a validação da integração frontend/backend foi identificado um probl
 - o Fastify rejeitava essas requisições com `Body cannot be empty when content-type is set to 'application/json'`;
 - o comportamento foi reproduzido em nível HTTP, comparando a mesma rota com e sem o header;
 - a correção foi centralizada no cliente HTTP (`frontend/src/api.ts`), passando a anunciar JSON somente quando existe corpo;
-- a solução foi validada por testes, typecheck e build.
+- a correção foi validada por reprodução em nível HTTP, suíte automatizada existente, typecheck e build.
 
 Isso ilustra o princípio adotado: acelerar a escrita sem dispensar revisão, reprodução e validação de engenharia.
 
@@ -74,8 +74,6 @@ Correspondência objetiva entre os requisitos de entrega e o repositório:
 | Decisões técnicas | `DECISOES-TECNICAS.md` |
 | Limitações e pendências | Documentadas neste README e em `DECISOES-TECNICAS.md` |
 | Tempo aproximado | Aproximadamente 22,5 horas |
-
-Desafio entregue a **jihan@drtis.com.br** e **antonio.diaz@drtis.com.br**.
 
 ---
 
@@ -105,7 +103,7 @@ As rotas (`backend/src/routes/`) apenas validam entrada e autenticam; as regras 
 |---|---|
 | Frontend | React 18 + TypeScript + Vite + React Router |
 | Backend | Node.js + TypeScript + Fastify + Zod |
-| Banco | PostgreSQL 15 + Prisma ORM |
+| Banco | PostgreSQL 14+ (validado em PostgreSQL 18) + Prisma ORM |
 | Autenticação | JWT (HS256) + bcrypt |
 | Testes | Vitest (integração via `app.inject`) |
 
@@ -214,7 +212,7 @@ A autorização é **sempre** verificada no servidor, inclusive em chamadas dire
 - o portal do paciente **nunca** recebe um id de paciente na URL: o `patientId` é resolvido a partir do token (`req.user.sub`), então um paciente não consegue pedir os dados de outro mesmo manipulando a requisição;
 - acesso indevido a laudo responde **404** (e não 403) para não revelar a existência do recurso de outro paciente;
 - senhas são armazenadas com bcrypt (custo 10) e mensagens de erro de login são genéricas;
-- o tempo de comparação de senha é mantido constante para e-mails existentes e inexistentes;
+- o custo computacional do bcrypt é igualado para e-mails existentes e inexistentes, reduzindo diferenças de comportamento temporal na autenticação;
 - `CLINIC_TIMEZONE` é validado como identificador IANA no startup;
 - entradas são validadas com Zod e consultas ao banco são parametrizadas via Prisma;
 - nenhum segredo real é versionado — apenas `.env.example`.
@@ -269,7 +267,7 @@ A checagem em memória continua existindo, mas apenas para devolver uma mensagem
 - Node.js 20+
 - PostgreSQL 14+ em execução
 
-### Banco de dados
+### Preparação do banco
 
 ```bash
 # Cria o usuário e os bancos (dev e teste)
