@@ -433,10 +433,10 @@ O registro completo do raciocínio está em `DECISOES-TECNICAS.md`.
 
 | Etapa | Tempo |
 |---|---|
-| Leitura do desafio e modelagem de dados | ~1h |
-| Backend: auth, agendamento, laudos, regras | ~5h |
-| Migration, índice único parcial e seed | ~1,5h |
-| Testes (5 cenários + unitários) | ~4h |
-| Frontend: design system, agenda, laudos, portal | ~9h |
-| Documentação e ajustes finais | ~2h |
-| **Total** | **~22,5h** |
+| Leitura do desafio e modelagem de dados | ~0,5h |
+| Backend: auth, agendamento, laudos, regras | ~1,5h |
+| Migration, índice único parcial e seed | ~0,5h |
+| Testes (5 cenários + unitários) | ~1h |
+| Frontend: design system, agenda, laudos, portal | ~2,5h |
+| Documentação e ajustes finais | ~1h |
+| **Total** | **~7h** |
