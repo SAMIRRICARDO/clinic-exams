@@ -32,10 +32,22 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
+  const hasBody = init.body !== undefined && init.body !== null && init.body !== '';
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(init.headers as Record<string, string> | undefined),
   };
+
+  // So anuncia JSON quando ha corpo: o backend (Fastify) rejeita POST/PUT
+  // sem body com "Body cannot be empty when content-type is set to ...".
+  if (hasBody) {
+    if (!Object.keys(headers).some((name) => name.toLowerCase() === 'content-type')) {
+      headers['Content-Type'] = 'application/json';
+    }
+  } else {
+    for (const name of Object.keys(headers)) {
+      if (name.toLowerCase() === 'content-type') delete headers[name];
+    }
+  }
   if (token) headers.authorization = `Bearer ${token}`;
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
