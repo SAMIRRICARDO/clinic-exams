@@ -1,0 +1,24 @@
+# Dependências e artefatos
+node_modules/
+dist/
+build/
+
+# Variáveis de ambiente (contêm segredos locais)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Cobertura de testes
+coverage/

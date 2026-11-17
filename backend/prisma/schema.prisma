@@ -1,0 +1,93 @@
+// Schema Prisma - Sistema de agendamento de exames e laudos
+// Banco: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STAFF
+  PATIENT
+}
+
+enum AppointmentStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum ReportStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  patient             Patient?
+  createdAppointments Appointment[] @relation("CreatedBy")
+}
+
+model Patient {
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  fullName  String
+  document  String    @unique
+  birthDate DateTime?
+  createdAt DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+}
+
+model ExamType {
+  id              String  @id @default(uuid())
+  code            String  @unique
+  name            String
+  durationMinutes Int     @default(30)
+  active          Boolean @default(true)
+
+  appointments Appointment[]
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  patientId       String
+  examTypeId      String
+  scheduledAt     DateTime          @db.Timestamptz(3)
+  status          AppointmentStatus @default(ACTIVE)
+  createdByUserId String
+  createdAt       DateTime          @default(now())
+  cancelledAt     DateTime?
+
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  examType  ExamType @relation(fields: [examTypeId], references: [id])
+  createdBy User     @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  report    Report?
+
+  @@index([scheduledAt])
+  @@index([patientId])
+}
+
+model Report {
+  id               String       @id @default(uuid())
+  appointmentId    String       @unique
+  title            String
+  body             String
+  professionalName String
+  status           ReportStatus @default(DRAFT)
+  publishedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
