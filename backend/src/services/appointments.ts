@@ -2,11 +2,15 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError } from '../http';
 import {
+  CLINIC_TZ,
+  OPENING_HOUR,
+  CLOSING_HOUR,
+  SLOT_MINUTES,
   clinicDayRange,
   clinicDayKey,
+  clinicLocalToUtc,
   formatInClinicTz,
   generateDaySlots,
-  isAlignedToSlot,
   utcToClinicParts,
 } from '../time';
 
@@ -68,12 +72,38 @@ export interface CreateAppointmentInput {
  * P2002 e convertemos em 409. Assim apenas uma e aceita.
  */
 export async function createAppointment(input: CreateAppointmentInput): Promise<AppointmentView> {
-  const { patientId, examTypeId, scheduledAt, createdByUserId } = input;
+  const { patientId, examTypeId, createdByUserId } = input;
 
-  // RN01: horarios fixos de 30 minutos
-  if (!isAlignedToSlot(scheduledAt)) {
+  // RN01: o instante recebido e interpretado no fuso da clinica. Um offset
+  // arbitrario no ISO 8601 nao pode alterar o horario real da clinica: apenas
+  // os componentes locais validados sao usados para reconstruir o instante UTC.
+  const local = utcToClinicParts(input.scheduledAt);
+
+  // RN01: horarios fixos de 30 minutos no fuso da clinica
+  if (
+    input.scheduledAt.getUTCSeconds() !== 0 ||
+    input.scheduledAt.getUTCMilliseconds() !== 0 ||
+    local.minute % SLOT_MINUTES !== 0
+  ) {
     throw new HttpError(422, 'O horario deve estar alinhado a grade de 30 minutos.', 'SLOT_NOT_ALIGNED');
   }
+
+  // RN01: a grade oficial vai das 08:00 as 18:00 (ultimo inicio as 17:30).
+  const minutesOfDay = local.hour * 60 + local.minute;
+  if (minutesOfDay < OPENING_HOUR * 60 || minutesOfDay >= CLOSING_HOUR * 60) {
+    const opening = String(OPENING_HOUR).padStart(2, '0');
+    const closing = String(CLOSING_HOUR).padStart(2, '0');
+    throw new HttpError(
+      422,
+      `O horario deve estar entre ${opening}:00 e ${closing}:00 no fuso da clinica (${CLINIC_TZ}).`,
+      'OUT_OF_GRID',
+    );
+  }
+
+  // Normalizacao: reconstrui o instante canonico a partir da hora local da clinica.
+  // E esse instante - nao o recebido - que sera usado na checagem de conflito,
+  // na validacao de passado e na persistencia (sempre em UTC).
+  const scheduledAt = clinicLocalToUtc(local.year, local.month, local.day, local.hour, local.minute);
 
   // RN04: nao permitir agendamentos no passado
   if (scheduledAt.getTime() <= Date.now()) {

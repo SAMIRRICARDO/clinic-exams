@@ -196,4 +196,93 @@ describe('Regras de agendamento', () => {
     const count = await prisma.report.count({ where: { appointmentId: apptId } });
     expect(count).toBe(1);
   });
+
+  describe('grade oficial da clinica (08:00-18:00)', () => {
+    const post = (f: ReturnType<typeof getFixtures>, scheduledAt: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/appointments',
+        headers: { authorization: `Bearer ${f.staffToken}` },
+        payload: {
+          patientId: f.patientA.patientId,
+          examTypeId: f.examTypes[0].id,
+          scheduledAt,
+        },
+      });
+
+    it('rejeita horario antes das 08:00 (07:30) com 422', async () => {
+      const f = getFixtures();
+      const res = await post(f, futureSlot(11, 7, 30).toISOString());
+      expect(res.statusCode).toBe(422);
+      expect(res.json().error.code).toBe('OUT_OF_GRID');
+    });
+
+    it('rejeita horario as 18:00 com 422', async () => {
+      const f = getFixtures();
+      const res = await post(f, futureSlot(11, 18, 0).toISOString());
+      expect(res.statusCode).toBe(422);
+      expect(res.json().error.code).toBe('OUT_OF_GRID');
+    });
+
+    it('rejeita horario as 18:30 com 422', async () => {
+      const f = getFixtures();
+      const res = await post(f, futureSlot(11, 18, 30).toISOString());
+      expect(res.statusCode).toBe(422);
+      expect(res.json().error.code).toBe('OUT_OF_GRID');
+    });
+
+    it('aceita horario valido as 08:00', async () => {
+      const f = getFixtures();
+      const slot = futureSlot(11, 8, 0);
+      const res = await post(f, slot.toISOString());
+      expect(res.statusCode).toBe(201);
+      expect(res.json().scheduledAt).toBe(slot.toISOString());
+      expect(res.json().scheduledAtIso).toMatch(/T08:00:00-03:00$/);
+    });
+
+    it('aceita horario valido as 17:30', async () => {
+      const f = getFixtures();
+      const slot = futureSlot(11, 17, 30);
+      const res = await post(f, slot.toISOString());
+      expect(res.statusCode).toBe(201);
+      expect(res.json().scheduledAt).toBe(slot.toISOString());
+      expect(res.json().scheduledAtIso).toMatch(/T17:30:00-03:00$/);
+    });
+
+    it('normaliza payload com offset diferente de -03:00 sem alterar o horario da clinica', async () => {
+      const f = getFixtures();
+      const slot = futureSlot(12, 9, 0); // 09:00 na clinica = 12:00Z
+      // Mesmo instante expresso em UTC (+00:00) em vez de -03:00.
+      const res = await post(f, slot.toISOString());
+      expect(res.statusCode).toBe(201);
+      expect(res.json().scheduledAt).toBe(slot.toISOString());
+      expect(res.json().scheduledAtIso).toMatch(/T09:00:00-03:00$/);
+    });
+
+    it('rejeita offset que desloca o horario para fora da grade da clinica', async () => {
+      const f = getFixtures();
+      const slot = futureSlot(12, 9, 0); // 09:00 na clinica = 12:00Z
+      // "09:00Z" corresponde a 06:00 na clinica: o offset nao pode inventar uma 09:00 local.
+      const shifted = new Date(slot.getTime() - 3 * 60 * 60 * 1000);
+      const res = await post(f, shifted.toISOString());
+      expect(res.statusCode).toBe(422);
+      expect(res.json().error.code).toBe('OUT_OF_GRID');
+    });
+
+    it('persiste o instante UTC canonico correspondente ao horario da clinica', async () => {
+      const f = getFixtures();
+      const slot = futureSlot(13, 14, 0); // 14:00 na clinica = 17:00Z
+      const res = await post(f, slot.toISOString());
+      expect(res.statusCode).toBe(201);
+
+      const view = res.json();
+      expect(view.scheduledAt).toBe(slot.toISOString());
+      expect(view.timeLabel).toBe('14:00');
+      expect(view.scheduledAtIso).toMatch(/T14:00:00-03:00$/);
+
+      const stored = await prisma.appointment.findUnique({ where: { id: view.id } });
+      expect(stored?.scheduledAt.toISOString()).toBe(slot.toISOString());
+      expect(stored?.scheduledAt.toISOString()).toMatch(/T17:00:00\.000Z$/);
+    });
+  });
 });
