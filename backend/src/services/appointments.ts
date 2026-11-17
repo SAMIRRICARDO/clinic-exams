@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { prisma } from '../db';
+import { lockAppointment, prisma } from '../db';
 import { HttpError } from '../http';
 import {
   CLINIC_TZ,
@@ -174,24 +174,32 @@ export async function getAppointment(id: string): Promise<AppointmentView> {
   return toAppointmentView(row);
 }
 
-/** Cancela um agendamento (RN09: bloqueado se houver laudo publicado). */
+/**
+ * Cancela um agendamento (RN09: bloqueado se houver laudo publicado).
+ * A transacao + trava na linha do Appointment serializam esta operacao com
+ * publishReport e upsertDraftReport, que travam a mesma linha antes de agir.
+ */
 export async function cancelAppointment(id: string): Promise<AppointmentView> {
-  const row = await prisma.appointment.findUnique({ where: { id }, include: appointmentInclude });
-  if (!row) throw new HttpError(404, 'Agendamento nao encontrado.', 'APPOINTMENT_NOT_FOUND');
+  return prisma.$transaction(async (tx) => {
+    await lockAppointment(tx, id);
 
-  if (row.status === 'CANCELLED') {
-    throw new HttpError(409, 'Este agendamento ja esta cancelado.', 'ALREADY_CANCELLED');
-  }
-  if (row.report?.status === 'PUBLISHED') {
-    throw new HttpError(409, 'Agendamento com laudo publicado nao pode ser cancelado.', 'REPORT_PUBLISHED');
-  }
+    const row = await tx.appointment.findUnique({ where: { id }, include: appointmentInclude });
+    if (!row) throw new HttpError(404, 'Agendamento nao encontrado.', 'APPOINTMENT_NOT_FOUND');
 
-  const updated = await prisma.appointment.update({
-    where: { id },
-    data: { status: 'CANCELLED', cancelledAt: new Date() },
-    include: appointmentInclude,
+    if (row.status === 'CANCELLED') {
+      throw new HttpError(409, 'Este agendamento ja esta cancelado.', 'ALREADY_CANCELLED');
+    }
+    if (row.report?.status === 'PUBLISHED') {
+      throw new HttpError(409, 'Agendamento com laudo publicado nao pode ser cancelado.', 'REPORT_PUBLISHED');
+    }
+
+    const updated = await tx.appointment.update({
+      where: { id },
+      data: { status: 'CANCELLED', cancelledAt: new Date() },
+      include: appointmentInclude,
+    });
+    return toAppointmentView(updated);
   });
-  return toAppointmentView(updated);
 }
 
 /**
