@@ -42,8 +42,10 @@ barreira está no banco.
   A conversão local→UTC faz **duas passadas** para acertar o offset mesmo em transições de
   horário de verão (o Brasil não usa DST desde 2019, mas o código não assume isso).
 - A API devolve `scheduledAt` (UTC ISO) **e** `scheduledAtIso` (com offset da clínica).
-- O frontend formata sempre com `timeZone: 'America/Sao_Paulo'`, então a hora exibida é a
-  mesma em qualquer máquina.
+- O backend define e valida `CLINIC_TIMEZONE` como identificador IANA; o frontend obtém o
+  fuso via `GET /health` e o usa para formatação, com fallback para `America/Sao_Paulo`
+  apenas na inicialização/indisponibilidade do endpoint, mantendo a hora exibida idêntica
+  em qualquer máquina.
 
 ### 1.3 Autenticação e autorização
 

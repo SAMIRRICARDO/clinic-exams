@@ -188,8 +188,10 @@ caso comum; ela **não** é a garantia.
 - Conversão para o fuso da clínica **na borda**: ao gerar a grade de horários e ao formatar
   as respostas (o campo `scheduledAtIso` sai com offset explícito, ex.:
   `2026-12-01T09:00:00-03:00`).
-- O frontend formata sempre no mesmo fuso via `Intl.DateTimeFormat` com
-  `timeZone: 'America/Sao_Paulo'`, então a hora exibida é idêntica em qualquer máquina.
+- O backend define e valida `CLINIC_TIMEZONE` (identificador IANA); o frontend obtém o fuso
+  via `GET /health` e o usa no `Intl.DateTimeFormat`, com fallback para `America/Sao_Paulo`
+  apenas na inicialização/indisponibilidade do endpoint — a hora exibida é a mesma em
+  qualquer máquina.
 - A conversão local→UTC usa duas passadas de `Intl` para resolver o offset corretamente.
 
 ### 7.3 Autorização no backend
@@ -199,7 +201,7 @@ A autorização é **sempre** verificada no servidor, inclusive em chamadas dire
 - `authenticate` valida o Bearer token em toda rota protegida.
 - `requireStaff` / `requirePatient` restringem por perfil.
 - O portal do paciente **nunca** recebe um id de paciente na URL: o `patientId` é resolvido
-a partir do token (`ctx.user.sub`), então um paciente não consegue pedir os dados de outro
+a partir do token (`req.user.sub`), então um paciente não consegue pedir os dados de outro
 mesmo manipulando a requisição.
 - Acesso indevido a laudo responde **404** (e não 403) para não revelar a existência do
   recurso de outro paciente.
