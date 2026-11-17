@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { verifyToken, type TokenPayload } from './auth';
+import { prisma } from './db';
 import type { Role } from '@prisma/client';
 
 declare module 'fastify' {
@@ -28,11 +29,26 @@ export async function authenticate(req: FastifyRequest, _reply: FastifyReply): P
     throw new HttpError(401, 'Token de autenticacao ausente.', 'UNAUTHENTICATED');
   }
   const token = header.slice('Bearer '.length).trim();
+  let payload: TokenPayload;
   try {
-    req.user = verifyToken(token);
+    payload = verifyToken(token);
   } catch {
     throw new HttpError(401, 'Token invalido ou expirado.', 'INVALID_TOKEN');
   }
+
+  // O role viaja no JWT, mas pode estar defasado se a conta mudou no banco.
+  // Revalida o usuario e usa o role atual para a autorizacao; os demais
+  // campos do payload (sub, email, name) sao preservados.
+  if (!payload.sub) {
+    throw new HttpError(401, 'Usuario nao encontrado.', 'UNAUTHENTICATED');
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: { role: true },
+  });
+  if (!user) throw new HttpError(401, 'Usuario nao encontrado.', 'UNAUTHENTICATED');
+
+  req.user = { ...payload, role: user.role };
 }
 
 /** Exige um dos perfis informados. */
